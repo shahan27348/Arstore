@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { stripe } from "./lib/stripe";
 import Stripe from "stripe";
 
-export async function createProduct(prevState: unknown, formData: FormData) {
+export async function createProduct(formData: FormData) {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
 
@@ -172,56 +172,56 @@ export async function addItem(productId: string) {
   }
   let myCart = {} as Cart;
 
-    if (!cart || !cart.items) {
-      myCart = {
-        userId: user.id,
-        items: [
-          {
-            price: selectedProduct.price,
-            id: selectedProduct.id,
-            imageString: selectedProduct.images[0],
-            name: selectedProduct.name,
-            quantity: 1,
-          },
-        ],
-      };
-    } else {
-      let itemFound = false;
-
-      myCart.items = cart.items.map((item) => {
-        if (item.id === productId) {
-          itemFound = true;
-          item.quantity += 1;
-        }
-
-        return item;
-      });
-
-      if (!itemFound) {
-        myCart.items.push({
+  if (!cart || !cart.items) {
+    myCart = {
+      userId: user.id,
+      items: [
+        {
+          price: selectedProduct.price,
           id: selectedProduct.id,
           imageString: selectedProduct.images[0],
           name: selectedProduct.name,
-          price: selectedProduct.price,
           quantity: 1,
-        });
+        },
+      ],
+    };
+  } else {
+    let itemFound = false;
+
+    myCart.items = cart.items.map((item) => {
+      if (item.id === productId) {
+        itemFound = true;
+        item.quantity += 1;
       }
+
+      return item;
+    });
+
+    if (!itemFound) {
+      myCart.items.push({
+        id: selectedProduct.id,
+        imageString: selectedProduct.images[0],
+        name: selectedProduct.name,
+        price: selectedProduct.price,
+        quantity: 1,
+      });
     }
-
-    await redis.set(`cart-${user.id}`, myCart);
-
-    revalidatePath("/", "layout");
   }
 
-  export async function delItem(formData: FormData) {
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
+  await redis.set(`cart-${user.id}`, myCart);
 
-    if (!user) {
-      return redirect("/");
-    }
+  revalidatePath("/", "layout");
+}
 
-    const productId = formData.get("productId");
+export async function delItem(formData: FormData) {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+
+  if (!user) {
+    return redirect("/");
+  }
+
+  const productId = formData.get("productId");
 
   let cart: Cart | null = await redis.get(`cart-${user.id}`);
 
@@ -235,15 +235,15 @@ export async function addItem(productId: string) {
   }
 
   revalidatePath("/bag");
+}
+
+export async function checkOut() {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+
+  if (!user) {
+    return redirect("/");
   }
-
-  export async function checkOut() {
-    const { getUser } = getKindeServerSession();
-    const user = await getUser();
-
-    if (!user) {
-      return redirect("/");
-    }
 
   let cart: Cart | null = await redis.get(`cart-${user.id}`);
 
@@ -278,5 +278,5 @@ export async function addItem(productId: string) {
     });
 
     return redirect(session.url as string);
-}
+  }
 }
